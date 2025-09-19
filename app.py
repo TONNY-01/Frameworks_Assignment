@@ -1,12 +1,17 @@
+
+
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
 from wordcloud import WordCloud
+from collections import Counter
+import re
 
 # 1. Data loading and caching
 @st.cache
-def load_data(path='/content/metadata_clean.csv'):
-    df = pd.read_csv(path)
+def load_data(csv_path=r"C:\Users\ble\Downloads\metadata_clean.csv"):
+    df = pd.read_csv(csv_path)
     df['publish_time'] = pd.to_datetime(df['publish_time'], errors='coerce')
     df['year'] = df['publish_time'].dt.year
     return df
@@ -54,7 +59,60 @@ st.pyplot(fig1)
 st.subheader("Top Journals")
 top_n = st.slider("Show Top N Journals", 5, 20, 10)
 journal_counts = filtered['journal'].value_counts().head(top_n)
-st.bar_chart(journal_counts)
+
+# Bar plot
+fig_journals, ax = plt.subplots(figsize=(10, 6))
+sns.barplot(y=journal_counts.index, x=journal_counts.values, palette='viridis', ax=ax)
+ax.set_title(f'Top {top_n} Journals by Paper Count')
+ax.set_xlabel('Number of Papers')
+ax.set_ylabel('Journal')
+plt.tight_layout()
+st.pyplot(fig_journals)
+
+# Pie chart
+if st.checkbox('Show pie chart'):
+    fig_pie, ax = plt.subplots(figsize=(8, 8))
+    journal_counts.plot(kind='pie', autopct='%1.0f%%', ax=ax)
+    ax.set_ylabel('')
+    ax.set_title(f'Top {top_n} Journals Distribution')
+    st.pyplot(fig_pie)
+
+# COVID-19 specific analysis
+if st.checkbox('Show COVID-19 specific analysis'):
+    st.subheader("COVID-19 Specific Analysis")
+    
+    # Filter for COVID-19 related papers
+    mask = (
+        filtered['title'].str.contains('covid', case=False, na=False) |
+        filtered['abstract'].str.contains('covid', case=False, na=False)
+    )
+    covid_journals = filtered[mask]['journal'].value_counts().head(10)
+    
+    # COVID-19 journals bar plot
+    fig_covid, ax = plt.subplots(figsize=(10, 6))
+    sns.barplot(y=covid_journals.index, x=covid_journals.values, palette='viridis', ax=ax)
+    ax.set_title('Top 10 Journals for COVID-19 Research')
+    ax.set_xlabel('Number of Papers')
+    ax.set_ylabel('Journal')
+    plt.tight_layout()
+    st.pyplot(fig_covid)
+    
+    # Word frequency analysis
+    st.subheader("Most Frequent Words in Titles")
+    titles = filtered['title'].dropna().astype(str).str.lower()
+    all_words = titles.str.findall(r'\b\w+\b').explode()
+    all_words = all_words[all_words.str.len() > 2]  # Remove short words
+    word_counts = Counter(all_words)
+    common_words = word_counts.most_common(20)
+    
+    words, counts = zip(*common_words)
+    fig_words, ax = plt.subplots(figsize=(10, 6))
+    sns.barplot(x=counts, y=words, palette='viridis', ax=ax)
+    ax.set_title('Top 20 Words in Titles')
+    ax.set_xlabel('Frequency')
+    ax.set_ylabel('Words')
+    plt.tight_layout()
+    st.pyplot(fig_words)
 
 ## 5.3 Word Cloud of Titles
 st.subheader("Title Word Cloud")
@@ -69,3 +127,4 @@ st.pyplot(fig2)
 # 6. Sample of the data
 st.subheader("Sample Data")
 st.dataframe(filtered.head(10))
+
